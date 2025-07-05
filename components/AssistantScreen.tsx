@@ -20,6 +20,26 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Effect to load speech synthesis voices reliably.
+  useEffect(() => {
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices.length > 0) {
+        setVoices(availableVoices);
+      }
+    };
+    // Load voices initially in case they are already cached
+    loadVoices();
+    // The 'voiceschanged' event fires when the voice list is ready
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+
+    // Cleanup listener on component unmount
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+    };
+  }, []);
 
   const handleTranscriptReady = useCallback(async (newTranscript: string) => {
     if (newTranscript) {
@@ -97,11 +117,15 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
-      const voices = window.speechSynthesis.getVoices();
+      
+      // Use the state variable which is populated by the 'voiceschanged' event listener.
       const voice = voices.find(v => v.lang === lang);
       if (voice) {
           utterance.voice = voice;
+      } else {
+          console.warn(`Speech synthesis voice for lang '${lang}' not found. Using browser default.`);
       }
+      
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false); // Catches both natural end and cancel
       utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
@@ -127,6 +151,15 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
     }
 
     if (!result) return;
+    
+    // Guard against trying to speak before voices are loaded.
+    if ('speechSynthesis' in window && voices.length === 0) {
+        console.warn("Attempted to speak before voices were loaded.");
+        setError("Speech voices are still loading. Please try again in a moment.");
+        setTimeout(() => setError(null), 3000);
+        return;
+    }
+
     let textToSpeak = "";
     const isHindi = language === Language.HINDI;
 
@@ -148,7 +181,7 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
   const pageTitle = mode === View.DIAGNOSIS ? (language === Language.HINDI ? 'लक्षण बताएं' : 'Describe Symptoms') : (language === Language.HINDI ? 'दवा खोजें' : 'Find Medicine');
 
   const SpeakButton = (
-      <button onClick={handleSpeakResult} className="p-2 rounded-full hover:bg-slate-200 transition-colors" aria-label={isSpeaking ? "Stop reading results" : "Read results aloud"}>
+      <button onClick={handleSpeakResult} disabled={voices.length === 0 && 'speechSynthesis' in window} className="p-2 rounded-full hover:bg-slate-200 disabled:opacity-50 disabled:cursor-wait transition-colors" aria-label={isSpeaking ? "Stop reading results" : "Read results aloud"}>
           {isSpeaking ? (
               <StopIcon className="w-6 h-6 text-red-600" />
           ) : (
