@@ -24,12 +24,13 @@ const getSystemInstruction = (mode: View, language: Language): string => {
     const baseInstruction = `You are an expert Homeopathy assistant for a doctor.
 RULES:
 1. Respond ONLY in ${langName}.
-2. Your entire output MUST be a single, valid JSON object.
-3. The JSON must NOT be inside markdown fences (\`\`\`).
-4. Do NOT include any comments, explanations, or introductory text.
-5. Ensure all string values inside the JSON are properly escaped (e.g., use \\" for quotes within strings).
-6. Do NOT use trailing commas.
-7. The response must start with { and end with }.`;
+2. The user's query may be in a different language; your response MUST still be in ${langName}.
+3. Your entire output MUST be a single, valid JSON object.
+4. The JSON must NOT be inside markdown fences (\`\`\`).
+5. Do NOT include any comments, explanations, or introductory text.
+6. Ensure all string values inside the JSON are properly escaped (e.g., use \\" for quotes within strings).
+7. Do NOT use trailing commas.
+8. The response must start with { and end with }.`;
 
     if (mode === View.DIAGNOSIS) {
         return `${baseInstruction}
