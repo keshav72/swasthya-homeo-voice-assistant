@@ -1,10 +1,9 @@
-// api/gemini.ts
+// File: api/gemini.ts
 
-// This is a Vercel Serverless Function, which runs on the server.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from "@google/genai";
 
-// --- We copy the necessary types and helpers here ---
+// --- We copy the necessary types here because this function is isolated ---
 enum Language {
   HINDI = 'hi-IN',
   ENGLISH = 'en-US',
@@ -16,29 +15,44 @@ enum View {
   MEDICINE_LOOKUP,
 }
 
-interface QueryResult {
-  medicines?: { name: string; symptoms: string; potency?: string; dosage?: string; }[];
-  symptoms?: string[];
-  medicineName?: string;
-}
-
+// --- This is the new, stricter system instruction logic ---
 const getSystemInstruction = (mode: View, language: Language): string => {
     const langName = language === Language.HINDI ? "Hindi" : "English";
     const diagnosisFormat = `{ "medicines": [{ "name": "string", "symptoms": "string", "potency": "string", "dosage": "string" }] }`;
     const lookupFormat = `{ "medicineName": "string", "symptoms": ["string", "string"] }`;
 
-    const baseInstruction = `You are an expert Homeopathy assistant. Respond ONLY in ${langName}. Your entire output MUST be a single, valid JSON object with no markdown fences.`;
+    const baseInstruction = `You are an expert Homeopathy assistant for a doctor.
+RULES:
+1. Respond ONLY in ${langName}.
+2. Your entire output MUST be a single, valid JSON object.
+3. The JSON must NOT be inside markdown fences (\`\`\`).
+4. Do NOT include any comments, explanations, or introductory text.
+5. Ensure all string values inside the JSON are properly escaped (e.g., use \\" for quotes within strings).
+6. Do NOT use trailing commas.
+7. The response must start with { and end with }.`;
 
     if (mode === View.DIAGNOSIS) {
-        return `${baseInstruction} The user will provide symptoms. Identify relevant medicines. Use this exact JSON format: ${diagnosisFormat}`;
+        return `${baseInstruction}
+
+TASK:
+The user will provide symptoms. Identify the 3-5 most relevant homeopathic medicines. For each medicine, provide its name, key matching symptoms, and suggested potency/dosage. If potency or dosage isn't applicable, you can omit the fields from the object.
+
+JSON FORMAT:
+${diagnosisFormat}`;
     } else { // MEDICINE_LOOKUP
-        return `${baseInstruction} The user will provide a medicine name. List its key symptoms. Use this exact JSON format: ${lookupFormat}`;
+        return `${baseInstruction}
+
+TASK:
+The user will provide a medicine name. List its top 5-7 key symptoms it is used for.
+
+JSON FORMAT:
+${lookupFormat}`;
     }
 };
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- This is the main function handler ---
+// --- This is the main function that Vercel will run ---
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -47,14 +61,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { userInput, mode, language } = req.body;
 
     if (!userInput || mode === undefined || !language) {
-        return res.status(400).json({ error: 'Missing required parameters: userInput, mode, and language' });
+        return res.status(400).json({ error: 'Missing required parameters' });
     }
-    
-    // This code runs on the SERVER, so it can safely access process.env
+
     if (!process.env.API_KEY) {
         return res.status(500).json({ error: "API_KEY environment variable not set on the server." });
     }
-
+    
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const systemInstruction = getSystemInstruction(mode, language);
     const model = 'gemini-2.5-flash-preview-04-17';
@@ -82,8 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const parsedData = JSON.parse(jsonText);
-            // Success! Send the data back to the browser.
-            return res.status(200).json(parsedData);
+            return res.status(200).json(parsedData); // Success
 
         } catch (e: any) {
             console.error(`Attempt ${attempt + 1}/${maxRetries} failed:`, e);
@@ -94,8 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 delay *= 2;
                 attempt++;
             } else {
-                console.error("Final error from Gemini API:", e);
-                return res.status(500).json({ error: "Failed to get a response from the AI." });
+                 return res.status(500).json({ error: e.message || "Failed to get a response from the AI." });
             }
         }
     }
