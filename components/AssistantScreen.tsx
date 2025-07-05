@@ -13,12 +13,13 @@ const Spinner: React.FC = () => (
   <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
 );
 
-const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
+export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) {
   const [language, setLanguage] = useState<Language>(Language.HINDI);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<string>('');
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   const handleTranscriptReady = useCallback(async (newTranscript: string) => {
     if (newTranscript) {
@@ -55,7 +56,7 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
   }, []);
 
   const toggleLanguage = useCallback(async () => {
-    if (isLoading) return; // Prevent toggling while a request is in flight
+    if (isLoading || isSpeaking) return; // Prevent toggling while a request is in flight or speaking
 
     const newLanguage = language === Language.HINDI ? Language.ENGLISH : Language.HINDI;
     setLanguage(newLanguage);
@@ -78,9 +79,13 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
       // If there's no transcript, just reset any potential errors.
       setError(null);
     }
-  }, [isLoading, language, transcript, mode]);
+  }, [isLoading, isSpeaking, language, transcript, mode]);
 
   const handleRecord = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
     setResult(null);
     setTranscript('');
     setError(null);
@@ -97,6 +102,16 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
       if (voice) {
           utterance.voice = voice;
       }
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false); // Catches both natural end and cancel
+      utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+        // Don't show an error if speech was manually cancelled.
+        // Different browsers might report 'canceled' or 'interrupted'.
+        if (event.error !== 'canceled' && event.error !== 'interrupted') {
+          setError("An error occurred during text-to-speech.");
+        }
+        setIsSpeaking(false);
+      };
       window.speechSynthesis.speak(utterance);
     } else {
       setError("Text-to-speech is not supported in this browser.");
@@ -104,6 +119,13 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
   };
 
   const handleSpeakResult = () => {
+    if (isSpeaking) {
+        // Calling cancel will trigger the utterance's onend or onerror event,
+        // which will correctly update the isSpeaking state.
+        window.speechSynthesis.cancel();
+        return;
+    }
+
     if (!result) return;
     let textToSpeak = "";
     const isHindi = language === Language.HINDI;
@@ -124,13 +146,23 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
   };
   
   const pageTitle = mode === View.DIAGNOSIS ? (language === Language.HINDI ? 'लक्षण बताएं' : 'Describe Symptoms') : (language === Language.HINDI ? 'दवा खोजें' : 'Find Medicine');
+
+  const SpeakButton = (
+      <button onClick={handleSpeakResult} className="p-2 rounded-full hover:bg-slate-200 transition-colors" aria-label={isSpeaking ? "Stop reading results" : "Read results aloud"}>
+          {isSpeaking ? (
+              <StopIcon className="w-6 h-6 text-red-600" />
+          ) : (
+              <SpeakerIcon className="w-6 h-6 text-blue-600" />
+          )}
+      </button>
+  );
   
   return (
     <div className="p-4 bg-white rounded-2xl shadow-lg w-full min-h-[70vh] flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <button onClick={onBack} className="p-2 rounded-full hover:bg-slate-200 transition-colors"><BackIcon className="w-6 h-6 text-slate-600" /></button>
         <h1 className="text-2xl font-bold text-slate-800">{pageTitle}</h1>
-        <button onClick={toggleLanguage} className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-100 py-2 px-4 rounded-full hover:bg-blue-200 transition-colors">
+        <button onClick={toggleLanguage} disabled={isLoading || isSpeaking} className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-100 py-2 px-4 rounded-full hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
           <LanguageIcon className="w-5 h-5" />
           <span>{language === Language.HINDI ? 'English' : 'हिंदी'}</span>
         </button>
@@ -158,7 +190,7 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <h2 className="text-xl font-bold text-slate-700">{language === Language.HINDI ? 'सुझाव' : 'Suggestions'}</h2>
-                  <button onClick={handleSpeakResult} className="p-2 rounded-full hover:bg-slate-200 transition-colors"><SpeakerIcon className="w-6 h-6 text-blue-600" /></button>
+                  {SpeakButton}
                 </div>
                 <ul className="space-y-4">
                   {result.medicines.map((med, index) => (
@@ -176,7 +208,7 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
               <div>
                  <div className="flex justify-between items-center mb-2">
                   <h2 className="text-xl font-bold text-slate-700">{language === Language.HINDI ? `लक्षण: ${result.medicineName}` : `Symptoms for ${result.medicineName}`}</h2>
-                  <button onClick={handleSpeakResult} className="p-2 rounded-full hover:bg-slate-200 transition-colors"><SpeakerIcon className="w-6 h-6 text-blue-600" /></button>
+                  {SpeakButton}
                 </div>
                 <ul className="space-y-2 list-disc list-inside bg-slate-100 p-4 rounded-lg">
                   {result.symptoms.map((symptom, index) => (
@@ -211,6 +243,4 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
       </div>
     </div>
   );
-};
-
-export default AssistantScreen;
+}
