@@ -1,6 +1,8 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Language, View, QueryResult } from '../types';
 import { useVoiceProcessor } from '../hooks/useVoiceProcessor';
+import { useHistory } from '../hooks/useHistory';
 import { getSuggestions } from '../services/geminiService';
 import { MicrophoneIcon, StopIcon, SpeakerIcon, LanguageIcon, BackIcon, InfoIcon } from './common/Icons';
 
@@ -21,6 +23,7 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
   const [transcript, setTranscript] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const { addHistoryItem } = useHistory();
 
   // Effect to load speech synthesis voices reliably.
   useEffect(() => {
@@ -50,13 +53,19 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
       try {
         const aiResult = await getSuggestions(newTranscript, mode, language);
         setResult(aiResult);
+        addHistoryItem({
+          transcript: newTranscript,
+          result: aiResult,
+          type: mode,
+          language: language,
+        });
       } catch (e: any) {
         setError(e.message || "An unknown error occurred.");
       } finally {
         setIsLoading(false);
       }
     }
-  }, [mode, language]);
+  }, [mode, language, addHistoryItem]);
 
   const { isRecording, error: voiceError, startRecording, stopRecording, isSupported } = useVoiceProcessor(handleTranscriptReady);
 
@@ -90,6 +99,12 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
         // Re-fetch suggestions with the same transcript but the new language.
         const aiResult = await getSuggestions(transcript, mode, newLanguage);
         setResult(aiResult);
+        addHistoryItem({
+          transcript: transcript,
+          result: aiResult,
+          type: mode,
+          language: newLanguage,
+        });
       } catch (e: any) {
         setError(e.message || "An unknown error occurred while re-fetching.");
       } finally {
@@ -99,7 +114,7 @@ export default function AssistantScreen({ mode, onBack }: AssistantScreenProps) 
       // If there's no transcript, just reset any potential errors.
       setError(null);
     }
-  }, [isLoading, isSpeaking, language, transcript, mode]);
+  }, [isLoading, isSpeaking, language, transcript, mode, addHistoryItem]);
 
   const handleRecord = () => {
     if (isSpeaking) {
