@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { View } from '../types';
-import { StethoscopeIcon, PillIcon } from './common/Icons';
+import { StethoscopeIcon, PillIcon, AppLogo } from './common/Icons';
 
 interface HomeScreenProps {
   setView: (view: View) => void;
@@ -10,6 +9,7 @@ interface HomeScreenProps {
 const HomeScreen: React.FC<HomeScreenProps> = ({ setView }) => {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-6 bg-white rounded-2xl shadow-lg">
+      <AppLogo className="w-20 h-24 mb-4" />
       <h1 className="text-4xl font-bold text-slate-800 mb-2">
         स्वस्थ्य होम्यो
       </h1>
