@@ -8,6 +8,7 @@ export enum View {
   HOME,
   DIAGNOSIS,
   MEDICINE_LOOKUP,
+  HISTORY,
 }
 
 export interface MedicineInfo {
@@ -21,4 +22,13 @@ export interface QueryResult {
   medicines?: MedicineInfo[];
   symptoms?: string[];
   medicineName?: string;
+}
+
+export interface HistoryItem {
+  id: number;
+  type: View.DIAGNOSIS | View.MEDICINE_LOOKUP;
+  transcript: string;
+  result: QueryResult;
+  language: Language;
+  timestamp: string;
 }
