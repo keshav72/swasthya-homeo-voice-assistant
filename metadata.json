@@ -1,0 +1,7 @@
+{
+  "name": "Swasthya Homeo Voice Assistant",
+  "description": "A voice-powered assistant for Homeopathy doctors to quickly find medicine suggestions for symptoms or look up symptoms for a specific medicine. Supports Hindi and English.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
