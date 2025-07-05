@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 type IconProps = {
@@ -52,5 +51,35 @@ export const PillIcon: React.FC<IconProps> = ({ className }) => (
 export const InfoIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+  </svg>
+);
+
+export const AppLogo: React.FC<IconProps> = ({ className }) => (
+  <svg
+    className={className}
+    viewBox="0 0 100 120"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-label="Swasthya Homeo AI Logo"
+    role="img"
+  >
+    {/* Bottle Body */}
+    <rect x="10" y="30" width="80" height="90" rx="20" fill="#3B82F6" />
+    {/* Bottle Cap */}
+    <rect x="30" y="0" width="40" height="20" rx="5" fill="#16A34A" />
+    {/* Bottle Neck */}
+    <rect x="35" y="20" width="30" height="10" fill="#E5E7EB" />
+    {/* AI Text */}
+    <text
+      x="50"
+      y="85"
+      fontFamily="system-ui, sans-serif"
+      fontSize="40"
+      fontWeight="bold"
+      fill="white"
+      textAnchor="middle"
+    >
+      AI
+    </text>
   </svg>
 );
