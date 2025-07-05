@@ -54,12 +54,31 @@ const AssistantScreen: React.FC<AssistantScreenProps> = ({ mode, onBack }) => {
     };
   }, []);
 
-  const toggleLanguage = () => {
-    setLanguage(prev => prev === Language.HINDI ? Language.ENGLISH : Language.HINDI);
-    setResult(null);
-    setTranscript('');
-    setError(null);
-  };
+  const toggleLanguage = useCallback(async () => {
+    if (isLoading) return; // Prevent toggling while a request is in flight
+
+    const newLanguage = language === Language.HINDI ? Language.ENGLISH : Language.HINDI;
+    setLanguage(newLanguage);
+
+    // If there is a previous transcript, it means we have results that can be translated.
+    if (transcript) {
+      setIsLoading(true);
+      setError(null);
+      setResult(null);
+      try {
+        // Re-fetch suggestions with the same transcript but the new language.
+        const aiResult = await getSuggestions(transcript, mode, newLanguage);
+        setResult(aiResult);
+      } catch (e: any) {
+        setError(e.message || "An unknown error occurred while re-fetching.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // If there's no transcript, just reset any potential errors.
+      setError(null);
+    }
+  }, [isLoading, language, transcript, mode]);
 
   const handleRecord = () => {
     setResult(null);
