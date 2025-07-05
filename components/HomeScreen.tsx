@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { View } from '../types';
-import { StethoscopeIcon, PillIcon, AppLogo } from './common/Icons';
+import { StethoscopeIcon, PillIcon, AppLogo, HistoryIcon } from './common/Icons';
 
 interface HomeScreenProps {
   setView: (view: View) => void;
@@ -30,6 +31,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ setView }) => {
         >
           <PillIcon className="w-8 h-8" />
           <span>Look Up Medicine</span>
+        </button>
+        <button
+          onClick={() => setView(View.HISTORY)}
+          className="w-full flex items-center justify-center gap-4 bg-slate-600 text-white text-xl font-bold py-6 px-8 rounded-xl shadow-md hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-300 transition-transform transform hover:scale-105"
+        >
+          <HistoryIcon className="w-8 h-8" />
+          <span>Query History</span>
         </button>
       </div>
        <p className="text-sm text-slate-500 mt-12">
