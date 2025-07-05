@@ -62,36 +62,42 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const transcriptRef = useRef<string>('');
 
   const handleResult = useCallback((event: SpeechRecognitionEvent) => {
-    const transcript = Array.from(event.results)
+    // Accumulate the full transcript from all parts of the speech recognition result.
+    const fullTranscript = Array.from(event.results)
       .map(result => result[0])
       .map(result => result.transcript)
       .join('');
     
-    if (event.results[0] && event.results[0].isFinal) {
-        onTranscriptReady(transcript);
-    }
-  }, [onTranscriptReady]);
+    transcriptRef.current = fullTranscript;
+    // NOTE: We no longer call onTranscriptReady here to prevent auto-submission.
+  }, []);
 
   const handleError = useCallback((event: SpeechRecognitionErrorEvent) => {
-    setError(`Voice recognition error: ${event.error}`);
+    // "no-speech" is a common event when the mic is open but no sound is detected. We can ignore it.
+    if (event.error !== 'no-speech') {
+        setError(`Voice recognition error: ${event.error}`);
+    }
     setIsRecording(false);
   }, []);
 
   const handleEnd = useCallback(() => {
+    // This just marks the recording as stopped. The submission logic is handled in stopRecording.
     setIsRecording(false);
   }, []);
 
+  // Setup recognition instance on component mount.
   useEffect(() => {
-    if (!isSupported || !SpeechRecognition) {
+    if (!isSupported) {
       setError("Voice recognition is not supported in this browser.");
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.continuous = true; // Allows for pauses without stopping the session.
+    recognition.interimResults = true; // Gets results as they are spoken.
 
     recognition.addEventListener('result', handleResult);
     recognition.addEventListener('error', handleError);
@@ -103,20 +109,22 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
       recognition.removeEventListener('result', handleResult);
       recognition.removeEventListener('error', handleError);
       recognition.removeEventListener('end', handleEnd);
-      recognition.stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Intentionally empty to run once
+  }, [handleResult, handleError, handleEnd]);
 
   const startRecording = useCallback((lang: string) => {
     if (recognitionRef.current && !isRecording) {
+      transcriptRef.current = ''; // Clear any previous transcript before starting.
       recognitionRef.current.lang = lang;
       try {
         recognitionRef.current.start();
         setIsRecording(true);
         setError(null);
       } catch(e) {
-        setError("Could not start voice recognition. It may already be active.");
+        setError("Could not start voice recognition.");
       }
     }
   }, [isRecording]);
@@ -125,8 +133,12 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
     if (recognitionRef.current && isRecording) {
       recognitionRef.current.stop();
       setIsRecording(false);
+      // This is the key change: The transcript is only processed when stopRecording is explicitly called.
+      if (transcriptRef.current) {
+        onTranscriptReady(transcriptRef.current);
+      }
     }
-  }, [isRecording]);
+  }, [isRecording, onTranscriptReady]);
 
   return { isRecording, error, startRecording, stopRecording, isSupported };
 };
