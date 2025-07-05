@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { View } from './types';
 import HomeScreen from './components/HomeScreen';
 import AssistantScreen from './components/AssistantScreen';
+import HistoryScreen from './components/HistoryScreen';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>(View.HOME);
@@ -17,6 +18,8 @@ const App: React.FC = () => {
         return <AssistantScreen mode={View.DIAGNOSIS} onBack={handleBackToHome} />;
       case View.MEDICINE_LOOKUP:
         return <AssistantScreen mode={View.MEDICINE_LOOKUP} onBack={handleBackToHome} />;
+      case View.HISTORY:
+        return <HistoryScreen onBack={handleBackToHome} />;
       case View.HOME:
       default:
         return <HomeScreen setView={setView} />;
