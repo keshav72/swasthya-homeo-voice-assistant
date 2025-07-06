@@ -69,7 +69,7 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
     const fullTranscript = Array.from(event.results)
       .map(result => result[0])
       .map(result => result.transcript)
-      .join('');
+      .join(' '); // Use a space to correctly join separate phrases
     
     transcriptRef.current = fullTranscript;
     // NOTE: We no longer call onTranscriptReady here to prevent auto-submission.
@@ -97,7 +97,7 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true; // Allows for pauses without stopping the session.
-    recognition.interimResults = true; // Gets results as they are spoken.
+    recognition.interimResults = false; // Gets results only when they are final. This fixes repetition bugs on mobile.
 
     recognition.addEventListener('result', handleResult);
     recognition.addEventListener('error', handleError);
@@ -135,7 +135,7 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
       setIsRecording(false);
       // This is the key change: The transcript is only processed when stopRecording is explicitly called.
       if (transcriptRef.current) {
-        onTranscriptReady(transcriptRef.current);
+        onTranscriptReady(transcriptRef.current.trim());
       }
     }
   }, [isRecording, onTranscriptReady]);
