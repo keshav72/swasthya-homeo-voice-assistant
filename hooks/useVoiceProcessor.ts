@@ -72,21 +72,24 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
       .join(' '); // Use a space to correctly join separate phrases
     
     transcriptRef.current = fullTranscript;
-    // NOTE: We no longer call onTranscriptReady here to prevent auto-submission.
   }, []);
 
   const handleError = useCallback((event: SpeechRecognitionErrorEvent) => {
     // "no-speech" is a common event when the mic is open but no sound is detected. We can ignore it.
-    if (event.error !== 'no-speech') {
+    if (event.error !== 'no-speech' && event.error !== 'aborted') {
         setError(`Voice recognition error: ${event.error}`);
     }
     setIsRecording(false);
   }, []);
 
   const handleEnd = useCallback(() => {
-    // This just marks the recording as stopped. The submission logic is handled in stopRecording.
     setIsRecording(false);
-  }, []);
+    // After recognition ends, process the final transcript.
+    // This is the most reliable place to do this, as it ensures we have the complete text.
+    if (transcriptRef.current) {
+      onTranscriptReady(transcriptRef.current.trim());
+    }
+  }, [onTranscriptReady]);
 
   // Setup recognition instance on component mount.
   useEffect(() => {
@@ -97,7 +100,7 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true; // Allows for pauses without stopping the session.
-    recognition.interimResults = false; // Gets results only when they are final. This fixes repetition bugs on mobile.
+    recognition.interimResults = false; // Gets results only when they are final.
 
     recognition.addEventListener('result', handleResult);
     recognition.addEventListener('error', handleError);
@@ -131,14 +134,11 @@ export const useVoiceProcessor = (onTranscriptReady: (transcript: string) => voi
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
+      // We just call stop(). The 'end' event handler will take care of processing the result.
+      // This prevents race conditions where we try to process the transcript before it's finalized.
       recognitionRef.current.stop();
-      setIsRecording(false);
-      // This is the key change: The transcript is only processed when stopRecording is explicitly called.
-      if (transcriptRef.current) {
-        onTranscriptReady(transcriptRef.current.trim());
-      }
     }
-  }, [isRecording, onTranscriptReady]);
+  }, [isRecording]);
 
   return { isRecording, error, startRecording, stopRecording, isSupported };
 };
